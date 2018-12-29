@@ -3,4 +3,4 @@
 # create class object
 parser p
 
-p.scanLines ../example/example.txt
+p.transpile ../example/example.txt

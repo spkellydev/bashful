@@ -1,39 +1,61 @@
 parser_properties=()
 
-parser.scanLines() {
-  cl=$(awk '/class/ {print}' $1)
-  class=${cl/class /}
-  var=obj
-  parser._print_header $var
+parser.transpile() {
+  # get declared classname
+  class=$(awk '/class/ {print $2}' $1)
+
+  var=$(awk '/obj/ {print $2}' $1)
+
+  # handle file headers
+  parser._print_header $class $var
+
+  # get all methods, starting with func
   val=$(awk 'BEGIN{RS="\n\n";IGNORECASE=1} /func/ {print}' $1)
 
-  parser._replace_func $class $val
+  # handle methods in oop style
+  parser._replace_func $class "$val" $var
 }
 
 parser._print_header() {
-  echo "#!/bin/bash" >> $class.sh
-  echo ". $class.h" >> $class.sh
-  echo ". $class.class" >> $class.h
+  # $1 signifies classname passed in
+  # sh headers
+  echo "#!/bin/bash" >> $1.sh
+  echo ". $1.h" >> $1.sh
+  echo "$1 $2" >> $1.sh
+
+  # h headers
+  echo "$1() {" >> $1.h
+  echo ". <(sed \"s/$1/\$1/g\" $1.class)" >> $1.h
+  echo "}" >> $1.h
 }
 
 # replace `func ex )` with a sh function call
 parser._replace_func() {
 
-  # get the function name
-  IFS=')' read -ra FUNC <<< $val
-  echo ${FUNC/func /$var.} >> $class.sh
-  echo ${FUNC/func /$class.}"() {" >> $class.class
+  # get the number of funcs terminated by `
+  # loop through input until all funcs are processed
+  funcCount=$(echo $2 | tr -cd '`' | wc -c)
+  idx=1
+  while [ $idx -lt $[$funcCount+1] ]
+  do
+    fn=$(echo $2| cut -d'`' -f $idx)
 
-  # get the function body
-  # take the input, split by ")"; split remainder by ';'
+    # get the function name
+    IFS=')' read -ra FUNC <<< $fn
+    echo ${FUNC/func /$3.} >> $1.sh
+    echo ${FUNC/func /$1.}"() {" >> $1.class
 
-  IFS=';' read -ra ADDR <<< $(echo $val| cut -d')' -f 2)
-  for i in "${ADDR[@]}"; do
-    if [[ $val =~ "func" ]]; then
-      echo $i";" >> $class.class
-    fi
-  done
-  echo "}" >> $class.class
-  }
-#  echo ${i/func /$var.} >> $class.sh
-#  echo ${i/func /$class.}"() {" >> $class.class
+    # get the function body
+    # take the input, split by ")"; split remainder by ';'
+    IFS=';' read -ra ADDR <<< $(echo $fn| cut -d')' -f 2 -s)   
+    for i in "${ADDR[@]}"; do
+      if [[ $fn =~ "func" ]]; then
+        echo $i";" >> $1.class
+      fi
+    done # for
+    echo "}" >> $1.class
+    
+    # increment while loop
+    idx=$[$idx+1]
+  done # while
+}
