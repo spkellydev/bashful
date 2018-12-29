@@ -1,0 +1,39 @@
+parser_properties=()
+
+parser.scanLines() {
+  cl=$(awk '/class/ {print}' $1)
+  class=${cl/class /}
+  var=obj
+  parser._print_header $var
+  val=$(awk 'BEGIN{RS="\n\n";IGNORECASE=1} /func/ {print}' $1)
+
+  parser._replace_func $class $val
+}
+
+parser._print_header() {
+  echo "#!/bin/bash" >> $class.sh
+  echo ". $class.h" >> $class.sh
+  echo ". $class.class" >> $class.h
+}
+
+# replace `func ex )` with a sh function call
+parser._replace_func() {
+
+  # get the function name
+  IFS=')' read -ra FUNC <<< $val
+  echo ${FUNC/func /$var.} >> $class.sh
+  echo ${FUNC/func /$class.}"() {" >> $class.class
+
+  # get the function body
+  # take the input, split by ")"; split remainder by ';'
+
+  IFS=';' read -ra ADDR <<< $(echo $val| cut -d')' -f 2)
+  for i in "${ADDR[@]}"; do
+    if [[ $val =~ "func" ]]; then
+      echo $i";" >> $class.class
+    fi
+  done
+  echo "}" >> $class.class
+  }
+#  echo ${i/func /$var.} >> $class.sh
+#  echo ${i/func /$class.}"() {" >> $class.class
