@@ -1,0 +1,14 @@
+class bashful
+obj utils
+
+func method1 )
+  echo hallo;
+  echo mysl;
+`
+
+func filename )
+  echo hello;
+`
+func anotherone )
+  ls
+`
